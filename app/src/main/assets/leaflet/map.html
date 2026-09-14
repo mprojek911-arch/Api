@@ -1,0 +1,685 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>Hardi Mantangai Fire Map</title>
+  <link rel="stylesheet" href="leaflet.css" />
+  <style>
+    html, body {
+      width: 100%;
+      height: 100%;
+      margin: 0;
+      padding: 0;
+      background-color: #0B0F17;
+      overflow: hidden;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+    #map {
+      width: 100%;
+      height: 100%;
+      background-color: #0B0F17;
+    }
+    /* Crosshair HUD di tengah layar */
+    .crosshair {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      width: 24px;
+      height: 24px;
+      transform: translate(-50%, -50%);
+      pointer-events: none;
+      z-index: 1000;
+      opacity: 0.65;
+    }
+    .crosshair::before, .crosshair::after {
+      content: '';
+      position: absolute;
+      background-color: rgba(255, 255, 255, 0.85);
+      box-shadow: 0 0 3px rgba(0,0,0,0.8);
+    }
+    .crosshair::before {
+      top: 11px;
+      left: 0;
+      width: 24px;
+      height: 2px;
+    }
+    .crosshair::after {
+      top: 0;
+      left: 11px;
+      width: 2px;
+      height: 24px;
+    }
+    .crosshair-center {
+      position: absolute;
+      top: 9px;
+      left: 9px;
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      border: 1.5px solid #FF3B30;
+      box-sizing: border-box;
+    }
+
+    /* Floating Coordinate HUD Bar */
+    .coord-hud {
+      position: absolute;
+      bottom: 16px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(11, 15, 23, 0.88);
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      border-radius: 20px;
+      padding: 6px 14px;
+      color: #E2E8F0;
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.5px;
+      z-index: 1000;
+      pointer-events: auto;
+      box-shadow: 0 4px 14px rgba(0, 0, 0, 0.5);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      white-space: nowrap;
+      cursor: pointer;
+    }
+    .coord-hud:active {
+      background: rgba(30, 41, 59, 0.95);
+    }
+    .coord-dot {
+      width: 7px;
+      height: 7px;
+      background-color: #22C55E;
+      border-radius: 50%;
+      box-shadow: 0 0 6px #22C55E;
+    }
+
+    /* Leaflet popup styling untuk tactical dark look */
+    .leaflet-popup-content-wrapper {
+      background: #111827 !important;
+      color: #F3F4F6 !important;
+      border: 1px solid #374151 !important;
+      border-radius: 12px !important;
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.6) !important;
+      padding: 4px !important;
+    }
+    .leaflet-popup-content {
+      margin: 10px 12px !important;
+      line-height: 1.4 !important;
+      font-size: 12px !important;
+    }
+    .leaflet-popup-tip {
+      background: #111827 !important;
+    }
+    .popup-title {
+      font-weight: 700;
+      font-size: 13px;
+      color: #EF4444;
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      margin-bottom: 6px;
+      border-bottom: 1px solid #1F2937;
+      padding-bottom: 4px;
+    }
+    .popup-row {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      margin: 3px 0;
+      color: #9CA3AF;
+    }
+    .popup-val {
+      color: #F9FAFB;
+      font-weight: 600;
+      text-align: right;
+    }
+    .popup-actions {
+      display: flex;
+      gap: 6px;
+      margin-top: 10px;
+    }
+    .popup-btn {
+      flex: 1;
+      padding: 6px 8px;
+      border-radius: 6px;
+      font-size: 11px;
+      font-weight: 600;
+      text-align: center;
+      cursor: pointer;
+      border: none;
+    }
+    .btn-copy {
+      background: #374151;
+      color: #F9FAFB;
+    }
+    .btn-copy:active {
+      background: #4B5563;
+    }
+    .btn-detail {
+      background: #DC2626;
+      color: #FFFFFF;
+    }
+    .btn-detail:active {
+      background: #B91C1C;
+    }
+
+    /* Posko Mantangai Marker Badge */
+    .mantangai-pin {
+      background: #0284C7;
+      border: 2px solid #FFFFFF;
+      border-radius: 50%;
+      width: 22px;
+      height: 22px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 0 10px #0284C7;
+      color: white;
+      font-size: 11px;
+      font-weight: bold;
+    }
+
+    /* Pulsing user location GPS dot */
+    .user-gps-pulse {
+      width: 16px;
+      height: 16px;
+      background: #3B82F6;
+      border: 2.5px solid #FFFFFF;
+      border-radius: 50%;
+      box-shadow: 0 0 12px #3B82F6;
+      position: relative;
+    }
+    .user-gps-pulse::after {
+      content: '';
+      position: absolute;
+      top: -10px;
+      left: -10px;
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      border: 2px solid rgba(59, 130, 246, 0.75);
+      animation: pulse 2s infinite ease-out;
+    }
+    @keyframes pulse {
+      0% { transform: scale(0.5); opacity: 1; }
+      100% { transform: scale(1.6); opacity: 0; }
+    }
+  </style>
+</head>
+<body>
+  <div id="map"></div>
+  
+  <!-- Crosshair bidik tengah peta -->
+  <div class="crosshair">
+    <div class="crosshair-center"></div>
+  </div>
+
+  <!-- HUD Koordinat Dinamis -->
+  <div class="coord-hud" id="coordHud" onclick="copyCenterCoords()" title="Sentuh untuk menyalin koordinat tengah">
+    <span class="coord-dot"></span>
+    <span id="coordText">LAT: -2.345600 &bull; LON: 114.482300</span>
+  </div>
+
+  <script src="leaflet.js"></script>
+  <script>
+    // Koordinat Pos Pemantauan Karhutla Hardi Mantangai
+    var MANTANGAI_LAT = -2.345600;
+    var MANTANGAI_LON = 114.482300;
+
+    // Inisialisasi Peta Leaflet
+    var map = L.map('map', {
+      center: [MANTANGAI_LAT, MANTANGAI_LON],
+      zoom: 9,
+      minZoom: 4,
+      maxZoom: 18,
+      zoomControl: false,
+      attributionControl: false,
+      preferCanvas: true
+    });
+
+    // Zoom control diposisikan di pojok kanan atas
+    L.control.zoom({ position: 'topright' }).addTo(map);
+
+    // ==========================================
+    // 1. BASEMAP LAYERS RESMI & NYATA
+    // ==========================================
+    
+    // Mode Hybrid (Satelit + Jalan & Batas Wilayah - DEFAULT)
+    var hybridGoogle = L.tileLayer('https://mt1.google.com/vt/lyrs=y&x={x}&y={y}&z={z}', {
+      maxZoom: 20,
+      subdomains: ['mt0', 'mt1', 'mt2', 'mt3']
+    });
+
+    // Mode Satelit Murni (Esri World Imagery)
+    var satelliteEsri = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+      maxZoom: 19
+    });
+
+    // Mode Peta Jalan (Street Map - CartoDB Voyager + OSM)
+    var streetVoyager = L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+      maxZoom: 19,
+      subdomains: 'abcd'
+    });
+
+    var streetOsm = L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      maxZoom: 19
+    });
+
+    // Default: Mode HYBRID (Citra Satelit nyata dengan batas jalan & desa)
+    var currentBaseLayer = hybridGoogle;
+    currentBaseLayer.addTo(map);
+
+    // Fallback jika Google tiles dibatasi
+    hybridGoogle.on('tileerror', function() {
+      if (currentBaseMode === 'hybrid' && !map.hasLayer(satelliteEsri)) {
+        console.log('Fallback ke Esri World Imagery');
+        map.removeLayer(hybridGoogle);
+        satelliteEsri.addTo(map);
+      }
+    });
+
+    var currentBaseMode = 'hybrid';
+
+    function setBaseLayer(mode) {
+      currentBaseMode = mode;
+      map.removeLayer(hybridGoogle);
+      map.removeLayer(satelliteEsri);
+      map.removeLayer(streetVoyager);
+      map.removeLayer(streetOsm);
+
+      if (mode === 'satellite') {
+        currentBaseLayer = satelliteEsri;
+      } else if (mode === 'street') {
+        currentBaseLayer = streetVoyager;
+      } else {
+        // default hybrid
+        currentBaseLayer = hybridGoogle;
+      }
+      currentBaseLayer.addTo(map);
+      currentBaseLayer.bringToBack();
+    }
+
+    // ==========================================
+    // 2. TACTICAL OVERLAYS (Pos Mantangai & Radius)
+    // ==========================================
+    var tacticalLayer = L.layerGroup().addTo(map);
+
+    // Marker Pos Pantau Hardi Mantangai
+    var mantangaiIcon = L.divIcon({
+      className: 'custom-mantangai-pin',
+      html: '<div class="mantangai-pin">M</div>',
+      iconSize: [22, 22],
+      iconAnchor: [11, 11]
+    });
+    var mantangaiMarker = L.marker([MANTANGAI_LAT, MANTANGAI_LON], { icon: mantangaiIcon })
+      .bindPopup(
+        '<div style="font-size:12px;font-weight:bold;color:#38BDF8;">' +
+        '🏢 POSKO KARHUTLA HARDI MANTANGAI<br/>' +
+        '<span style="font-size:11px;color:#94A3B8;">Kec. Mantangai, Kab. Kapuas, Kalteng</span><br/>' +
+        '<span style="font-size:11px;color:#E2E8F0;">Lat: -2.345600 &bull; Lon: 114.482300</span>' +
+        '</div>'
+      );
+    tacticalLayer.addLayer(mantangaiMarker);
+
+    // Radius Rings dari Posko Mantangai
+    var radius25 = L.circle([MANTANGAI_LAT, MANTANGAI_LON], {
+      radius: 25000,
+      color: '#EF4444',
+      weight: 1.5,
+      dashArray: '4, 4',
+      fillColor: '#EF4444',
+      fillOpacity: 0.04
+    });
+    var radius50 = L.circle([MANTANGAI_LAT, MANTANGAI_LON], {
+      radius: 50000,
+      color: '#F97316',
+      weight: 1.2,
+      dashArray: '6, 6',
+      fillColor: '#F97316',
+      fillOpacity: 0.03
+    });
+    var radius100 = L.circle([MANTANGAI_LAT, MANTANGAI_LON], {
+      radius: 100000,
+      color: '#0EA5E9',
+      weight: 1.0,
+      dashArray: '8, 8',
+      fillColor: '#0EA5E9',
+      fillOpacity: 0.02
+    });
+    tacticalLayer.addLayer(radius25);
+    tacticalLayer.addLayer(radius50);
+    tacticalLayer.addLayer(radius100);
+
+    // ==========================================
+    // 3. USER GPS MARKER
+    // ==========================================
+    var userLocationLayer = L.layerGroup().addTo(map);
+    var userMarker = null;
+
+    function setUserLocation(lat, lon, accuracy) {
+      if (typeof lat !== 'number' || typeof lon !== 'number') return;
+      if (isNaN(lat) || isNaN(lon)) return;
+
+      userLocationLayer.clearLayers();
+      var userIcon = L.divIcon({
+        className: 'custom-user-gps',
+        html: '<div class="user-gps-pulse"></div>',
+        iconSize: [16, 16],
+        iconAnchor: [8, 8]
+      });
+
+      userMarker = L.marker([lat, lon], { icon: userIcon })
+        .bindPopup(
+          '<div style="font-size:12px;font-weight:bold;color:#60A5FA;">' +
+          '📍 POSISI ANDA (GPS LAPANGAN)<br/>' +
+          '<span style="font-size:11px;color:#E2E8F0;">Lat: ' + lat.toFixed(6) + ' &bull; Lon: ' + lon.toFixed(6) + '</span>' +
+          '</div>'
+        );
+      userLocationLayer.addLayer(userMarker);
+
+      if (accuracy && accuracy > 0) {
+        var accCircle = L.circle([lat, lon], {
+          radius: accuracy,
+          color: '#3B82F6',
+          weight: 1,
+          fillColor: '#3B82F6',
+          fillOpacity: 0.1
+        });
+        userLocationLayer.addLayer(accCircle);
+      }
+    }
+
+    function focusUserLocation() {
+      if (userMarker) {
+        var ll = userMarker.getLatLng();
+        map.flyTo([ll.lat, ll.lng], 13, { duration: 1.2 });
+        userMarker.openPopup();
+      } else {
+        if (window.AndroidBridge && window.AndroidBridge.showToast) {
+          window.AndroidBridge.showToast("Lokasi GPS belum tersedia. Aktifkan tombol GPS.");
+        }
+      }
+    }
+
+    // ==========================================
+    // 4. HOTSPOT LAYER & HIGH PERFORMANCE RENDERING
+    // ==========================================
+    var hotspotLayer = L.featureGroup().addTo(map);
+    var hotspotDataMap = {};
+    var allBounds = null;
+
+    var canvasRenderer = L.canvas({ padding: 0.5 });
+
+    function loadHotspots(hotspotsJson) {
+      hotspotLayer.clearLayers();
+      hotspotDataMap = {};
+      allBounds = null;
+
+      var list = [];
+      try {
+        if (typeof hotspotsJson === 'string') {
+          list = JSON.parse(hotspotsJson);
+        } else if (Array.isArray(hotspotsJson)) {
+          list = hotspotsJson;
+        }
+      } catch (e) {
+        console.error("Gagal parse hotspots JSON", e);
+        return;
+      }
+
+      if (!list || list.length === 0) {
+        return;
+      }
+
+      var bounds = L.latLngBounds();
+      var countValid = 0;
+
+      for (var i = 0; i < list.length; i++) {
+        var h = list[i];
+        var lat = parseFloat(h.lat);
+        var lon = parseFloat(h.lon);
+
+        // Validasi ketat koordinat WGS84
+        if (isNaN(lat) || isNaN(lon)) continue;
+        if (lat < -90.0 || lat > 90.0 || lon < -180.0 || lon > 180.0) continue;
+        if (Math.abs(lat) < 0.0001 && Math.abs(lon) < 0.0001) continue;
+
+        countValid++;
+        bounds.extend([lat, lon]);
+
+        // Warna indikator berdasarkan umur data (sesuai standar audit)
+        // 🟢 < 1 jam: #22C55E | 🟡 1-3 jam: #EAB308 | 🟠 3-6 jam: #F97316 | 🔴 > 6 jam: #EF4444
+        var color = '#EF4444';
+        var strokeColor = '#DC2626';
+        var ageCategory = h.ageCategory || 'DATA_LAMA';
+        var ageMin = h.ageMin || 999;
+
+        if (ageMin <= 60 || ageCategory === 'TERBARU') {
+          color = '#22C55E';
+          strokeColor = '#16A34A';
+        } else if (ageMin <= 180 || ageCategory === 'NRT') {
+          color = '#EAB308';
+          strokeColor = '#CA8A04';
+        } else if (ageMin <= 360 || ageCategory === 'DATA_LEBIH_LAMA') {
+          color = '#F97316';
+          strokeColor = '#EA580C';
+        } else {
+          color = '#EF4444';
+          strokeColor = '#DC2626';
+        }
+
+        var frp = parseFloat(h.frp) || 0.0;
+        var radius = 6;
+        if (frp > 50) radius = 9;
+        else if (frp > 20) radius = 7.5;
+        else if (frp > 10) radius = 6.5;
+
+        var marker = L.circleMarker([lat, lon], {
+          renderer: canvasRenderer,
+          radius: radius,
+          fillColor: color,
+          color: strokeColor,
+          weight: 1.5,
+          opacity: 0.95,
+          fillOpacity: 0.85
+        });
+
+        marker.hotspotId = h.id;
+        marker.hotspotData = h;
+        hotspotDataMap[h.id] = marker;
+
+        // Buat HTML Popup terstruktur
+        var popupHtml = createPopupHtml(h, lat, lon, frp, color);
+        marker.bindPopup(popupHtml);
+
+        marker.on('click', function(e) {
+          var hd = this.hotspotData;
+          if (window.AndroidBridge && window.AndroidBridge.onHotspotSelected) {
+            window.AndroidBridge.onHotspotSelected(hd.id);
+          }
+        });
+
+        hotspotLayer.addLayer(marker);
+      }
+
+      if (countValid > 0) {
+        allBounds = bounds;
+      }
+    }
+
+    function createPopupHtml(h, lat, lon, frp, badgeColor) {
+      var latStr = lat.toFixed(6);
+      var lonStr = lon.toFixed(6);
+      var ageText = h.ageFormatted || (h.ageMin ? h.ageMin + ' menit' : '-');
+      var sat = h.satellite || 'VIIRS';
+      var inst = h.instrument || 'VIIRS';
+      var conf = (h.confidence || 'nominal').toUpperCase();
+      var timeStr = h.timeWita || (h.acqDate + ' ' + h.acqTime);
+      var prov = h.province || 'Kalimantan Tengah';
+      var reg = h.regency || '';
+
+      var html = '<div class="popup-title">🔥 TITIK API TERDETEKSI</div>' +
+        '<div class="popup-row"><span>Satelit</span><span class="popup-val">' + sat + ' (' + inst + ')</span></div>' +
+        '<div class="popup-row"><span>Koordinat Lat</span><span class="popup-val">' + latStr + '</span></div>' +
+        '<div class="popup-row"><span>Koordinat Lon</span><span class="popup-val">' + lonStr + '</span></div>' +
+        '<div class="popup-row"><span>Observasi</span><span class="popup-val">' + timeStr + '</span></div>' +
+        '<div class="popup-row"><span>Umur Data</span><span class="popup-val" style="color:' + badgeColor + ';">' + ageText + '</span></div>' +
+        '<div class="popup-row"><span>Intensitas FRP</span><span class="popup-val" style="color:#EF4444;">' + frp.toFixed(1) + ' MW</span></div>' +
+        '<div class="popup-row"><span>Keyakinan</span><span class="popup-val">' + conf + '</span></div>' +
+        (reg ? '<div class="popup-row"><span>Wilayah</span><span class="popup-val">' + reg + '</span></div>' : '') +
+        '<div class="popup-actions">' +
+        '  <button class="popup-btn btn-copy" onclick="copySpecificCoord(' + latStr + ', ' + lonStr + ')">📋 Salin Koordinat</button>' +
+        '  <button class="popup-btn btn-detail" onclick="openFullDetail(\'' + h.id + '\')">Detail Penuh</button>' +
+        '</div>';
+      return html;
+    }
+
+    function openFullDetail(id) {
+      if (window.AndroidBridge && window.AndroidBridge.onHotspotSelected) {
+        window.AndroidBridge.onHotspotSelected(id);
+      }
+    }
+
+    function copySpecificCoord(lat, lon) {
+      var coordStr = lat.toFixed(6) + ', ' + lon.toFixed(6);
+      if (window.AndroidBridge && window.AndroidBridge.copyCoordinates) {
+        window.AndroidBridge.copyCoordinates(lat, lon);
+      } else {
+        copyToClipboardFallback(coordStr);
+      }
+    }
+
+    function fitAllHotspots() {
+      if (allBounds && allBounds.isValid()) {
+        map.fitBounds(allBounds, { padding: [40, 40], maxZoom: 14 });
+      } else {
+        if (window.AndroidBridge && window.AndroidBridge.showToast) {
+          window.AndroidBridge.showToast("Tidak ada titik api valid yang memenuhi filter.");
+        }
+      }
+    }
+
+    function focusNearestHotspot(fromLat, fromLon) {
+      var targetLat = typeof fromLat === 'number' ? fromLat : MANTANGAI_LAT;
+      var targetLon = typeof fromLon === 'number' ? fromLon : MANTANGAI_LON;
+
+      var closestMarker = null;
+      var minDist = Infinity;
+
+      for (var id in hotspotDataMap) {
+        var m = hotspotDataMap[id];
+        var ll = m.getLatLng();
+        var dLat = ll.lat - targetLat;
+        var dLon = ll.lng - targetLon;
+        var distSq = dLat * dLat + dLon * dLon;
+        if (distSq < minDist) {
+          minDist = distSq;
+          closestMarker = m;
+        }
+      }
+
+      if (closestMarker) {
+        var cll = closestMarker.getLatLng();
+        map.flyTo([cll.lat, cll.lng], 14, { duration: 1.2 });
+        closestMarker.openPopup();
+        if (window.AndroidBridge && window.AndroidBridge.onHotspotSelected) {
+          window.AndroidBridge.onHotspotSelected(closestMarker.hotspotId);
+        }
+      } else {
+        if (window.AndroidBridge && window.AndroidBridge.showToast) {
+          window.AndroidBridge.showToast("Tidak ada titik api untuk difokuskan.");
+        }
+      }
+    }
+
+    function focusMantangai() {
+      map.flyTo([MANTANGAI_LAT, MANTANGAI_LON], 10, { duration: 1.0 });
+      mantangaiMarker.openPopup();
+    }
+
+    function selectHotspotById(id) {
+      var marker = hotspotDataMap[id];
+      if (marker) {
+        var ll = marker.getLatLng();
+        map.flyTo([ll.lat, ll.lng], 14, { duration: 1.0 });
+        marker.openPopup();
+      }
+    }
+
+    // ==========================================
+    // 5. UPDATE COORDINATE HUD SAAT PAN / MOVE
+    // ==========================================
+    var coordTextEl = document.getElementById('coordText');
+    var lastCenterLat = MANTANGAI_LAT;
+    var lastCenterLon = MANTANGAI_LON;
+
+    function updateCenterCoordDisplay() {
+      var center = map.getCenter();
+      lastCenterLat = center.lat;
+      lastCenterLon = center.lng;
+      var text = 'LAT: ' + center.lat.toFixed(6) + ' \u2022 LON: ' + center.lng.toFixed(6);
+      coordTextEl.textContent = text;
+
+      if (window.AndroidBridge && window.AndroidBridge.onMapMoved) {
+        window.AndroidBridge.onMapMoved(center.lat, center.lng, map.getZoom());
+      }
+    }
+
+    map.on('move', updateCenterCoordDisplay);
+    map.on('moveend', updateCenterCoordDisplay);
+    map.on('click', function(e) {
+      lastCenterLat = e.latlng.lat;
+      lastCenterLon = e.latlng.lng;
+      coordTextEl.textContent = 'LAT: ' + e.latlng.lat.toFixed(6) + ' \u2022 LON: ' + e.latlng.lng.toFixed(6);
+      if (window.AndroidBridge && window.AndroidBridge.onMapClicked) {
+        window.AndroidBridge.onMapClicked(e.latlng.lat, e.latlng.lng);
+      }
+    });
+
+    function copyCenterCoords() {
+      if (window.AndroidBridge && window.AndroidBridge.copyCoordinates) {
+        window.AndroidBridge.copyCoordinates(lastCenterLat, lastCenterLon);
+      } else {
+        var str = lastCenterLat.toFixed(6) + ', ' + lastCenterLon.toFixed(6);
+        copyToClipboardFallback(str);
+      }
+    }
+
+    function copyToClipboardFallback(text) {
+      var textArea = document.createElement("textarea");
+      textArea.value = text;
+      document.body.appendChild(textArea);
+      textArea.select();
+      try {
+        document.execCommand('copy');
+        alert("Koordinat disalin: " + text);
+      } catch (err) {
+        console.error('Fallback copy gagal', err);
+      }
+      document.body.removeChild(textArea);
+    }
+
+    // Auto resize Leaflet map container
+    window.addEventListener('resize', function() {
+      map.invalidateSize();
+    });
+
+    // Beritahu Android bahwa Leaflet sudah siap
+    window.onload = function() {
+      setTimeout(function() {
+        map.invalidateSize();
+        updateCenterCoordDisplay();
+        if (window.AndroidBridge && window.AndroidBridge.onMapReady) {
+          window.AndroidBridge.onMapReady();
+        }
+      }, 300);
+    };
+  </script>
+</body>
+</html>

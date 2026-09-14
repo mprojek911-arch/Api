@@ -1,0 +1,8 @@
+<resources>
+    <string name="app_name">HARDI MANTANGAI FIRE MONITOR</string>
+    <string name="tab_map">Peta</string>
+    <string name="tab_list">Daftar</string>
+    <string name="tab_stats">Dashboard</string>
+    <string name="channel_fire_alerts_name">Peringatan Titik Api</string>
+    <string name="channel_fire_alerts_desc">Notifikasi deteksi titik api satelit terbaru di dekat wilayah Anda</string>
+</resources>

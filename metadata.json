@@ -1,0 +1,6 @@
+{
+  "name": "HARDI MANTANGAI FIRE MONITOR",
+  "description": "Sistem pemantauan indikasi titik panas/hotspot berbasis data satelit untuk membantu pemantauan awal wilayah Hardi Mantangai dan wilayah sekitarnya.",
+  "requestFramePermissions": ["geolocation"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
