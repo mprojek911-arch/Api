@@ -181,6 +181,8 @@ fun MapScreen(
                     settings.useWideViewPort = true
                     settings.mixedContentMode = WebSettings.MIXED_CONTENT_ALWAYS_ALLOW
                     setBackgroundColor(android.graphics.Color.parseColor("#0B0F17"))
+                    // Render via software pipeline to prevent Mesa DRM rendernode (/dev/dri/renderD128) access failures in virtualized/container environments
+                    setLayerType(android.view.View.LAYER_TYPE_SOFTWARE, null)
 
                     // Javascript Interface Bridge
                     addJavascriptInterface(object {
@@ -238,6 +240,11 @@ fun MapScreen(
                     }, "AndroidBridge")
 
                     webViewClient = object : WebViewClient() {
+                        override fun onRenderProcessGone(view: WebView?, detail: android.webkit.RenderProcessGoneDetail?): Boolean {
+                            // Prevent application crashes if the renderer process exits
+                            return true
+                        }
+
                         override fun onPageFinished(view: WebView?, url: String?) {
                             super.onPageFinished(view, url)
                             isMapReady = true
